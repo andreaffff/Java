@@ -6,27 +6,30 @@ import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.io.IOException;
-import java.util.HashSet;
+import java.util.List;
 
 
 @RestController
 @RequestMapping("/api/file")
+
 public class FileController {
 
     private FileService fileService;
+
 
     public FileController(FileService fileService) {
         this.fileService = fileService;
     }
 
     @PostMapping("/getResultFromQuery")
-    public ResponseEntity<HashSet<String>> processFile(@RequestParam("file") MultipartFile file,
-                                                       @RequestParam("id") String id) throws IOException {
+
+    public ResponseEntity<List<String>> processFile(@RequestParam("file") MultipartFile file,
+                                                    @RequestParam("id") String id) throws IOException {
         return ResponseEntity.ok(fileService.getFileWithQuery(file, id));
     }
 
     @PostMapping("/getResultFromCoobol")
-    public ResponseEntity<HashSet<String>> processFile(@RequestParam("file") MultipartFile file) throws IOException {
+    public ResponseEntity<List<String>> processFile(@RequestParam("file") MultipartFile file) throws IOException {
         return ResponseEntity.ok(fileService.getFileWithCobol(file));
     }
 

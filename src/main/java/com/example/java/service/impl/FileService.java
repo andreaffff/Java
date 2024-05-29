@@ -7,7 +7,9 @@ import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStreamReader;
 
-import java.util.HashSet;
+import java.util.ArrayList;
+
+import java.util.List;
 
 
 @Service
@@ -15,9 +17,9 @@ public class FileService implements com.example.java.service.FileService {
 
 
     @Override
-    public HashSet<String> getFileWithQuery(MultipartFile file, String id) throws IOException {
-        HashSet<String> linesWithId = new HashSet<>();
-        HashSet<String> sqlQueries = new HashSet<>();
+    public List<String> getFileWithQuery(MultipartFile file, String id) throws IOException {
+        List<String> linesWithId = new ArrayList<>();
+        List<String> sqlQueries = new ArrayList<>();
 
         // check about the format of the file
         if (!isValidFileFormat(file)) {
@@ -40,13 +42,13 @@ public class FileService implements com.example.java.service.FileService {
             }
         }
 
-        return sqlQueries;
+        return sqlQueries.stream().sorted().toList();
 
     }
 
     @Override
-    public HashSet<String> getFileWithCobol(MultipartFile file) throws IOException {
-        HashSet<String> coobol = new HashSet<>();
+    public List<String> getFileWithCobol(MultipartFile file) throws IOException {
+        List<String> coobol = new ArrayList<>();
 
         // check about the format of the file
         if (!isValidFileFormat(file)) {
