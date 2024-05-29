@@ -10,6 +10,7 @@ import java.io.InputStreamReader;
 import java.util.ArrayList;
 
 import java.util.List;
+import java.util.stream.Collectors;
 
 
 @Service
@@ -29,7 +30,7 @@ public class FileService implements com.example.java.service.FileService {
             try (BufferedReader reader = new BufferedReader(new InputStreamReader(file.getInputStream()))) {
                 String line;
                 while ((line = reader.readLine()) != null) {
-                    if (line.contains(id)) {
+                    if (id == null ||line.contains(id)) {
                         linesWithId.add(line);
                     }
                 }
@@ -42,7 +43,7 @@ public class FileService implements com.example.java.service.FileService {
             }
         }
 
-        return sqlQueries.stream().sorted().toList();
+        return sqlQueries.stream().sorted().collect(Collectors.toList());
 
     }
 

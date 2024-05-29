@@ -24,7 +24,7 @@ public class FileController {
     @PostMapping("/getResultFromQuery")
 
     public ResponseEntity<List<String>> processFile(@RequestParam("file") MultipartFile file,
-                                                    @RequestParam("id") String id) throws IOException {
+                                                    @RequestParam(name = "id", required = false) String id) throws IOException {
         return ResponseEntity.ok(fileService.getFileWithQuery(file, id));
     }
 
