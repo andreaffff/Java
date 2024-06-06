@@ -33,4 +33,29 @@ public class FileController {
         return ResponseEntity.ok(fileService.getFileWithCobol(file));
     }
 
+    @PostMapping("/getResultWithDate")
+    public ResponseEntity<List<String>> getResultWithDate(@RequestParam("file") MultipartFile file) throws IOException {
+        return ResponseEntity.ok(fileService.getResultWithDate(file));
+
+    }
+
+    @PostMapping("/getResultWithId")
+    public ResponseEntity<List<String>> getResultWithId(@RequestParam("file") MultipartFile file,
+                                                        @RequestParam(name = "id") String id) throws IOException {
+        return ResponseEntity.ok(fileService.getResultWithId(file, id));
+    }
+
+    @PostMapping("/getResultWithCard")
+    public ResponseEntity<List<String>> getResultWithCard(@RequestParam("file") MultipartFile file,
+                                                          @RequestParam(name = "id") String id) throws IOException {
+        return ResponseEntity.ok(fileService.getResultWithCard(file, id));
+
+    }
+
+    @PostMapping("/getResultWithSql")
+    public ResponseEntity<List<String>> getResultWithSql(@RequestParam("file") MultipartFile file) throws IOException {
+        return ResponseEntity.ok(fileService.getResultWithSql(file));
+
+    }
+
 }
