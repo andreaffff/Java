@@ -185,6 +185,33 @@ public class FileService implements com.example.java.service.FileService {
         return sqlFragments.stream().collect(Collectors.toList());
     }
 
+    @Override
+    public List<String> getResultWithRegex(MultipartFile file) throws IOException {
+        List<String> listWithoutInfo = new ArrayList<>();
+
+        if (!isValidFileFormat(file)) {
+            throw new IllegalArgumentException("The file format is incorrect. Allowed format: .log");
+        }
+
+        if (!file.isEmpty()) {
+            try (BufferedReader reader = new BufferedReader(new InputStreamReader(file.getInputStream()))) {
+                String line;
+
+                while ((line = reader.readLine()) != null) {
+                    String filteredLine = line.replaceAll("ainer : |tainer :|INFO\\s+db\\.DbConnector\\s+-\\s+|Parsing final sqlString >|DEBUG\\s+db\\.DbConnector\\s+-\\s+|INFO\\s+ejb\\.BaseSessionBean\\s+-\\s+", "").trim();
+                    if (!filteredLine.isEmpty()) {
+                        filteredLine = filteredLine.substring(1, filteredLine.length() - 2);
+                        listWithoutInfo.add(filteredLine);
+                    }
+                }
+            }
+        } else {
+            throw new RuntimeException("The file cannot be empty");
+        }
+
+        return listWithoutInfo;
+    }
+
 
     public static boolean isValidFileFormat(MultipartFile file) {
         if (file == null) {

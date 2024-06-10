@@ -58,4 +58,9 @@ public class FileController {
 
     }
 
+    @PostMapping("/getResultWithRegex")
+    public ResponseEntity<List<String>> getResultWithRegex(@RequestParam("file") MultipartFile file) throws IOException {
+        return ResponseEntity.ok(fileService.getResultWithRegex(file));
+
+    }
 }

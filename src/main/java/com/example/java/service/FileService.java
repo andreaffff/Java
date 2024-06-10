@@ -19,4 +19,7 @@ public interface FileService {
     List<String> getResultWithCard(MultipartFile file, String id) throws IOException;
 
     List<String> getResultWithSql(MultipartFile file) throws IOException;
+
+    List<String> getResultWithRegex(MultipartFile file) throws IOException;
+
 }
