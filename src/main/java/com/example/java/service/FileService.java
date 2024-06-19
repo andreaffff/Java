@@ -22,4 +22,9 @@ public interface FileService {
 
     List<String> getResultWithRegex(MultipartFile file) throws IOException;
 
+    Object convertToCsv(MultipartFile file);
+
+    List<String> getResultWithStatement(MultipartFile file) throws IOException;
+
+    List<String> getListWithStatement(MultipartFile file) throws IOException;
 }

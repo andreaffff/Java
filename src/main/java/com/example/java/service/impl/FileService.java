@@ -3,13 +3,12 @@ package com.example.java.service.impl;
 import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
 
-import java.io.BufferedReader;
-import java.io.IOException;
-import java.io.InputStreamReader;
+import java.io.*;
 
 import java.util.ArrayList;
 
 import java.util.List;
+import java.util.UUID;
 import java.util.stream.Collectors;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -198,9 +197,11 @@ public class FileService implements com.example.java.service.FileService {
                 String line;
 
                 while ((line = reader.readLine()) != null) {
-                    String filteredLine = line.replaceAll("ainer : |tainer :|INFO\\s+db\\.DbConnector\\s+-\\s+|Parsing final sqlString >|DEBUG\\s+db\\.DbConnector\\s+-\\s+|INFO\\s+ejb\\.BaseSessionBean\\s+-\\s+", "").trim();
+                    String filteredLine = line.replaceAll("ainer : |tainer :|INFO\\s+db\\.DbConnector\\s+-\\s+|Parsing final sqlString >|DEBUG\\s+db\\.DbConnector\\s+-\\s+|INFO\\s+ejb\\.BaseSessionBean\\s+-\\s+|SQL to execute: ", "").trim();
+
                     if (!filteredLine.isEmpty()) {
                         filteredLine = filteredLine.substring(1, filteredLine.length() - 2);
+                        filteredLine = filteredLine.replaceAll("^(.{13})(.{4})(.{11})", "$1&$2&$3&");
                         listWithoutInfo.add(filteredLine);
                     }
                 }
@@ -210,6 +211,99 @@ public class FileService implements com.example.java.service.FileService {
         }
 
         return listWithoutInfo;
+    }
+
+    @Override
+    public Object convertToCsv(MultipartFile file) {
+        if (file.isEmpty()) {
+            return "Please select a file to upload";
+        }
+
+        try {
+            File convertedFile = convertMultiPartToFile(file);
+            File desktopDirectory = new File(System.getProperty("user.home"), "Desktop/ConvertedFiles");
+            if (!desktopDirectory.exists()) {
+                desktopDirectory.mkdirs();
+            }
+            File csvFile = convertFileToCSV(convertedFile, desktopDirectory);
+
+            return "The file is converted to CSV format and saved to the desktop: " + csvFile.getAbsolutePath();
+        } catch (IOException e) {
+            return "An error occurred while converting the file: " + e.getMessage();
+        }
+    }
+
+    private File convertMultiPartToFile(MultipartFile file) throws IOException {
+        File convFile = new File(System.getProperty("java.io.tmpdir") + "/" + file.getOriginalFilename());
+        try (FileOutputStream fos = new FileOutputStream(convFile)) {
+            fos.write(file.getBytes());
+        }
+        return convFile;
+    }
+
+    private File convertFileToCSV(File file, File directory) throws IOException {
+        String uniqueFileName = UUID.randomUUID() + ".csv";
+        File csvFile = new File(directory, uniqueFileName);
+
+        try (BufferedWriter bw = new BufferedWriter(new FileWriter(csvFile));
+             BufferedReader br = new BufferedReader(new FileReader(file))) {
+            String line;
+            while ((line = br.readLine()) != null) {
+
+                bw.write(line);
+                bw.newLine();
+            }
+        }
+        return csvFile;
+    }
+
+    @Override
+    public List<String> getResultWithStatement(MultipartFile file) throws IOException {
+        List<String> listStatement = new ArrayList<>();
+
+        if (!isValidFileFormat(file)) {
+            throw new IllegalArgumentException("The file format is incorrect. Allowed format: .log");
+        }
+
+        if (!file.isEmpty()) {
+            try (BufferedReader reader = new BufferedReader(new InputStreamReader(file.getInputStream()))) {
+                String line;
+
+                while ((line = reader.readLine()) != null) {
+                    String filteredLine = line.replaceAll("ainer : |tainer :|INFO\\s+db\\.DbConnector\\s+-\\s+|SQL to execute:", "").trim();
+
+                    if (!filteredLine.isEmpty()) {
+                        filteredLine = filteredLine.substring(1, filteredLine.length() - 2);
+                        filteredLine = filteredLine.replaceAll("^(.{13})(.{4})(.{11})", "$1&$2&$3&");
+                        listStatement.add(filteredLine);
+                    }
+                }
+            }
+        } else {
+            throw new RuntimeException("The file cannot be empty");
+        }
+
+        return listStatement;
+    }
+
+    @Override
+    public List<String> getListWithStatement(MultipartFile file) throws IOException {
+        List<String> listStatement = new ArrayList<>();
+
+        if (!isValidFileFormat(file)) {
+            throw new IllegalArgumentException("The file format is incorrect. Allowed format: .log");
+        }
+        if (!file.isEmpty()) {
+            try (BufferedReader reader = new BufferedReader(new InputStreamReader(file.getInputStream()))) {
+                String line;
+                while ((line = reader.readLine()) != null) {
+                    if (line.contains("Statement")) {
+                        listStatement.add(line);
+                    }
+                }
+            }
+        } else throw new RuntimeException("The file cannot be empty");
+        return listStatement.stream().collect(Collectors.toList());
     }
 
 

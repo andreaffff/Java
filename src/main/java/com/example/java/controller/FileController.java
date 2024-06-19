@@ -5,7 +5,8 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
-import java.io.IOException;
+
+import java.io.*;
 import java.util.List;
 
 
@@ -61,6 +62,21 @@ public class FileController {
     @PostMapping("/getResultWithRegex")
     public ResponseEntity<List<String>> getResultWithRegex(@RequestParam("file") MultipartFile file) throws IOException {
         return ResponseEntity.ok(fileService.getResultWithRegex(file));
+    }
 
+    @PostMapping("/upload")
+    public String handleFileUpload(@RequestParam("file") MultipartFile file) {
+
+        return (String) fileService.convertToCsv(file);
+    }
+
+    @PostMapping("/getResultWithStatement")
+    public ResponseEntity<List<String>> getResultWithStatement(@RequestParam("file") MultipartFile file) throws IOException {
+        return ResponseEntity.ok(fileService.getResultWithStatement(file));
+    }
+
+    @PostMapping("/getResultListStatement")
+    public ResponseEntity<List<String>> getListWithStatement(@RequestParam("file") MultipartFile file) throws IOException {
+        return ResponseEntity.ok(fileService.getListWithStatement(file));
     }
 }
