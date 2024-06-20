@@ -201,7 +201,7 @@ public class FileService implements com.example.java.service.FileService {
 
                     if (!filteredLine.isEmpty()) {
                         filteredLine = filteredLine.substring(1, filteredLine.length() - 2);
-                        filteredLine = filteredLine.replaceAll("^(.{13})(.{4})(.{11})", "$1&$2&$3&");
+                        filteredLine = filteredLine.replaceAll("^(.{13})(.{4})(.{10})", "$1&$2&$3&");
                         listWithoutInfo.add(filteredLine);
                     }
                 }
@@ -218,9 +218,13 @@ public class FileService implements com.example.java.service.FileService {
         if (file.isEmpty()) {
             return "Please select a file to upload";
         }
+        if (!isValidFileFormat(file)) {
+            throw new IllegalArgumentException("The file format is incorrect. Allowed format: .log");
+        }
 
         try {
             File convertedFile = convertMultiPartToFile(file);
+
             File desktopDirectory = new File(System.getProperty("user.home"), "Desktop/ConvertedFiles");
             if (!desktopDirectory.exists()) {
                 desktopDirectory.mkdirs();
@@ -234,7 +238,7 @@ public class FileService implements com.example.java.service.FileService {
     }
 
     private File convertMultiPartToFile(MultipartFile file) throws IOException {
-        File convFile = new File(System.getProperty("java.io.tmpdir") + "/" + file.getOriginalFilename());
+        File convFile = new File(System.getProperty("java.io.tmpdir"), file.getOriginalFilename());
         try (FileOutputStream fos = new FileOutputStream(convFile)) {
             fos.write(file.getBytes());
         }
@@ -242,20 +246,21 @@ public class FileService implements com.example.java.service.FileService {
     }
 
     private File convertFileToCSV(File file, File directory) throws IOException {
-        String uniqueFileName = UUID.randomUUID() + ".csv";
-        File csvFile = new File(directory, uniqueFileName);
+        String csvFileName = file.getName().replaceFirst("[.][^.]+$", "") + ".csv";
+        File csvFile = new File(directory, csvFileName);
 
-        try (BufferedWriter bw = new BufferedWriter(new FileWriter(csvFile));
-             BufferedReader br = new BufferedReader(new FileReader(file))) {
+        try (BufferedReader br = new BufferedReader(new FileReader(file));
+             BufferedWriter bw = new BufferedWriter(new FileWriter(csvFile))) {
+
             String line;
             while ((line = br.readLine()) != null) {
-
                 bw.write(line);
                 bw.newLine();
             }
         }
         return csvFile;
     }
+
 
     @Override
     public List<String> getResultWithStatement(MultipartFile file) throws IOException {
@@ -282,9 +287,9 @@ public class FileService implements com.example.java.service.FileService {
         } else {
             throw new RuntimeException("The file cannot be empty");
         }
-
         return listStatement;
     }
+
 
     @Override
     public List<String> getListWithStatement(MultipartFile file) throws IOException {
