@@ -64,10 +64,15 @@ public class FileController {
         return ResponseEntity.ok(fileService.getResultWithRegex(file));
     }
 
-    @PostMapping("/upload")
-    public String handleFileUpload(@RequestParam("file") MultipartFile file) {
+    @PostMapping("/uploadForQuery")
+    public String handleFileUploadForQuery(@RequestParam("file") MultipartFile file) {
 
-        return (String) fileService.convertToCsv(file);
+        return (String) fileService.convertToCsvForQuery(file);
+    }
+    @PostMapping("/uploadForStatement")
+    public String handleFileUploadForStatement(@RequestParam("file") MultipartFile file) {
+
+        return (String) fileService.convertToCsvForStatement(file);
     }
 
     @PostMapping("/getResultWithStatement")
