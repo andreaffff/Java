@@ -69,11 +69,6 @@ public class FileController {
 
         return (String) fileService.convertToCsvForQuery(file);
     }
-    @PostMapping("/uploadForStatement")
-    public String handleFileUploadForStatement(@RequestParam("file") MultipartFile file) {
-
-        return (String) fileService.convertToCsvForStatement(file);
-    }
 
     @PostMapping("/getResultWithStatement")
     public ResponseEntity<List<String>> getResultWithStatement(@RequestParam("file") MultipartFile file) throws IOException {
@@ -83,5 +78,11 @@ public class FileController {
     @PostMapping("/getResultListStatement")
     public ResponseEntity<List<String>> getListWithStatement(@RequestParam("file") MultipartFile file) throws IOException {
         return ResponseEntity.ok(fileService.getListWithStatement(file));
+    }
+    
+    @PostMapping("/generateXlsxTable")
+    public Object generateCsvFile(@RequestParam("file") MultipartFile file, @RequestParam("id") String id) throws IOException{
+
+        return (Object) fileService.generateXlsxTable(file, id);
     }
 }

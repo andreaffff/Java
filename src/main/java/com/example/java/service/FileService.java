@@ -28,5 +28,8 @@ public interface FileService {
 
     List<String> getListWithStatement(MultipartFile file) throws IOException;
 
-    Object convertToCsvForStatement(MultipartFile file);
+	List<String> getErrors(MultipartFile file) throws IOException;
+
+	Object generateXlsxTable(MultipartFile file, String id) throws IOException;	
+	
 }
