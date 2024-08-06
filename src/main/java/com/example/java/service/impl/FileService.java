@@ -542,12 +542,17 @@ public class FileService implements com.example.java.service.FileService {
 	                                    logContent.add(bufferedLine);
 	                                }
 	                            } catch (ParseException e) {
-	                               
+	                              
 	                            }
 	                        }
 	                    }
 	                }
 	                //Clear the buffer after adding it to the log
+	                logContent.add("\n|*************************************************************************|"
+	                		+ "\n|*************************************************************************|\n|--ERROR--|"
+	                		+ "\n|*************************************************************************|\n|--SEPARATOR--|"
+	                		+ "\n|*************************************************************************|"
+	                		+ "\n|*************************************************************************|\n");
 	                buffer.clear(); 
 
 	                //Extract error data
