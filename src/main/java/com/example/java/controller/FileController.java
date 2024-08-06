@@ -8,6 +8,7 @@ import org.springframework.web.multipart.MultipartFile;
 
 import java.io.*;
 import java.nio.file.Path;
+import java.text.ParseException;
 import java.util.List;
 
 
@@ -87,8 +88,8 @@ public class FileController {
         return (Object) fileService.generateXlsxTable(file, id);
     }
     
-    @PostMapping("/wroteCsvFile")
-    public Path wroteCsvFile(@RequestParam("file") MultipartFile file) throws IOException {
-        return (Path) fileService.wroteCsvFile(file);
+    @PostMapping("/logErrors")
+    public Path wroteCsvFile(@RequestParam("file") MultipartFile file) throws IOException, ParseException {
+        return (Path) fileService.logErrors(file);
     }
 }

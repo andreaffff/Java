@@ -4,6 +4,7 @@ import org.springframework.web.multipart.MultipartFile;
 
 import java.io.IOException;
 import java.nio.file.Path;
+import java.text.ParseException;
 import java.util.List;
 
 
@@ -29,7 +30,7 @@ public interface FileService {
 
     List<String> getListWithStatement(MultipartFile file) throws IOException;
 
-    Path wroteCsvFile(MultipartFile file) throws IOException;
+    Path logErrors(MultipartFile file) throws IOException, ParseException;
 
 	Object generateXlsxTable(MultipartFile file, String id) throws IOException;	
 	

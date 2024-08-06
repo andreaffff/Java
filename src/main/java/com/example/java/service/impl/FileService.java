@@ -12,7 +12,11 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.nio.file.StandardOpenOption;
+import java.text.ParseException;
+import java.text.SimpleDateFormat;
+import java.util.ArrayDeque;
 import java.util.ArrayList;
+import java.util.Deque;
 import java.util.List;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -42,7 +46,7 @@ public class FileService implements com.example.java.service.FileService {
 		List<String> linesWithId = new ArrayList<>();
 		List<String> sqlQueries = new ArrayList<>();
 
-		// check about the format of the file
+		//check about the format of the file
 		if (!isValidFileFormat(file)) {
 			throw new IllegalArgumentException("The file format is incorrect. Allowed format: .log");
 		}
@@ -57,7 +61,7 @@ public class FileService implements com.example.java.service.FileService {
 			}
 		} else
 			throw new RuntimeException("The file cannot be empty");
-		// Iterate through the list of rows with the given id
+		//Iterate through the list of rows with the given id
 		for (String line : linesWithId) {
 			if (line.contains("Parsing final sqlString")) {
 				sqlQueries.add(line);
@@ -352,7 +356,7 @@ public class FileService implements com.example.java.service.FileService {
 		if (file == null) {
 			return false;
 		}
-		// Checks if the file has a .log extension
+		//Checks if the file has a .log extension
 		String fileName = file.getOriginalFilename();
 		return fileName != null && fileName.toLowerCase().endsWith(".log");
 	}
@@ -487,69 +491,120 @@ public class FileService implements com.example.java.service.FileService {
 		return excelFilePath;
 	}
 
-	public List<String> getErrors(MultipartFile file) throws IOException {
+	public List<String> getErrors(MultipartFile file) throws IOException, ParseException {
+	    List<String> results = new ArrayList<>();
+	    SimpleDateFormat dateFormat = new SimpleDateFormat("HH:mm:ss,SSS");
+	    //Buffer to store the previous lines
+	    Deque<String> buffer = new ArrayDeque<>(); 
+	    //Content to write inside the log file
+	    List<String> logContent = new ArrayList<>();
+	    //Time of the "get key =ERROR" line
+	    String referenceTime = null;
+	    //ID of the "get key =ERROR" line
+	    String referenceId = null;
 
-		List<String> results = new ArrayList<>();
+	    String time = null, Id = null, key = null, subsystem = null, errorType = null, code = null, description = null;
+	    boolean isErrorSection = false;
 
-		BufferedReader reader = new BufferedReader(new InputStreamReader(file.getInputStream()));
-		String time = null, threadId = null, key = null, subsystem = null, errorType = null, code = null, description = null;
+	    try (BufferedReader reader = new BufferedReader(new InputStreamReader(file.getInputStream()))) {
+	        String line;
 
-		String line;
-		boolean isErrorSection = false;
+	        while ((line = reader.readLine()) != null) {
+	            String currentTime = null;
+	            String currentId = null;
 
-		while ((line = reader.readLine()) != null) {
-			// check if there are errors
-			if (line.contains("get key =ERROR")) {
-				// get all errors information
-				if (isErrorSection && key != null && subsystem != null && errorType != null && code != null && description != null) {
-					String errorStringResult = time + "&" + threadId + "&" + key + "&" + subsystem + "&" + errorType + "&" + code + "&" + description;
-					results.add(errorStringResult);
-				}
-				// extract after
-				key = extractAfter(line, "get key =").trim();
-				// se
-				time = null;
-				threadId = null;
-				subsystem = null;
-				errorType = null;
-				code = null;
-				description = null;
-				isErrorSection = true; // value that set value block
-			}
+	            if (line.length() >= 12) {
+	                currentTime = line.substring(0, 12);
+	            }
 
-			if (isErrorSection) {
-				if (line.length() >= 8 && time == null) {
-					time = line.substring(0, 8);
-				}
-				if (line.contains("[ainer : ") && threadId == null) {
-					threadId = extractBetween(line, "[ainer : ", "]");
-				} else if (line.contains("[tainer : ") && threadId == null) {
-					threadId = extractBetween(line, "[tainer : ", "]");
-				}
-				if (line.contains("SUBSYSTEM:")) {
-					subsystem = extractAfter(line, "SUBSYSTEM:").trim();
-				}
-				if (line.contains("ERRORTYPE:")) {
-					errorType = extractAfter(line, "ERRORTYPE:").trim();
-				}
-				if (line.contains("- 	CODE:")) {
-					code = extractAfter(line, "CODE:").trim();
-				}
-				if (line.contains("DESCRIPTION:")) {
-					description = extractAfter(line, "DESCRIPTION:").trim();
-				}
-			}
-		}
+	            if (line.contains("[ainer : ")) {
+	                currentId = extractBetween(line, "[ainer : ", "]");
+	            } else if (line.contains("[tainer : ")) {
+	                currentId = extractBetween(line, "[tainer : ", "]");
+	            }
 
-		reader.close();
+	            //Add the current line to the buffer
+	            buffer.add(line);
 
-		// add last error found if we have all the information
-		if (isErrorSection && key != null && subsystem != null && errorType != null && code != null && description != null) {
-			String errorStringResult = time + "&" + threadId + "&" + key + "&" + subsystem + "&" + errorType + "&" + code + "&" + description;
-			results.add(errorStringResult);
-		}
+	            //using delimit line to use it as reference
+	            if (line.contains("get key =ERROR")) {
+	                referenceTime = currentTime;
+	                referenceId = currentId;
 
-		return results;
+	                //Transfer lines from the buffer to the log only if they meet the time and ID conditions
+	                if (referenceTime != null && referenceId != null) {
+	                    for (String bufferedLine : buffer) {
+	                        if (bufferedLine.length() >= 12) {
+	                            String bufferedTime = bufferedLine.substring(0, 12);
+	                            try {
+	                                long timeDifference = dateFormat.parse(referenceTime).getTime() - dateFormat.parse(bufferedTime).getTime();
+	                                if (timeDifference <= 100 && referenceId.equals(currentId)) {
+	                                    logContent.add(bufferedLine);
+	                                }
+	                            } catch (ParseException e) {
+	                               
+	                            }
+	                        }
+	                    }
+	                }
+	                //Clear the buffer after adding it to the log
+	                buffer.clear(); 
+
+	                //Extract error data
+	                if (isErrorSection && key != null && subsystem != null && errorType != null && code != null && description != null) {
+	                    String errorStringResult = String.format("%s&%s&%s&%s&%s&%s&%s", time, Id, key, subsystem, errorType, code, description);
+	                    results.add(errorStringResult);
+	                }
+
+	                key = extractAfter(line, "get key =").trim();
+	                //Assign the reference time to the variable time
+	                time = referenceTime;
+	                //Assign the reference ID to the variable Id
+	                Id = referenceId;
+	                subsystem = null;
+	                errorType = null;
+	                code = null;
+	                description = null;
+	                isErrorSection = true;
+	            }
+
+	            //Update variables for the next iteration
+	            if (isErrorSection) {
+	                if (line.length() >= 12 && time == null) {
+	                    time = line.substring(0, 12);
+	                }
+	                if ((line.contains("[ainer : ")) && Id == null) {
+	                    Id = extractBetween(line, "[ainer : ", "]").trim();
+	                }else if (line.contains("[tainer : ") && Id == null) {
+		                Id = extractBetween(line, "[tainer : ", "]");
+		            }
+	                if (line.contains("SUBSYSTEM:")) {
+	                    subsystem = extractAfter(line, "SUBSYSTEM:").trim();
+	                }
+	                if (line.contains("ERRORTYPE:")) {
+	                    errorType = extractAfter(line, "ERRORTYPE:").trim();
+	                }
+	                if (line.contains("- 	CODE:")) {
+	                    code = extractAfter(line, "CODE:").trim();
+	                }
+	                if (line.contains("DESCRIPTION:")) {
+	                    description = extractAfter(line, "DESCRIPTION:").trim();
+	                }
+	            }
+	        }
+
+	        //Add the last error if there is data
+	        if (isErrorSection && key != null && subsystem != null && errorType != null && code != null && description != null) {
+	            String errorStringResult = String.format("%s&%s&%s&%s&%s&%s&%s", time, Id, key, subsystem, errorType, code, description);
+	            results.add(errorStringResult);
+	        }
+
+	        //Create a new log file with error details
+	        createAndWriteLogFile("Desktop/ErrorsDetails", file.getOriginalFilename().replace(".log", "DETAILS").concat(".log"), logContent);
+
+	    } 
+
+	    return results;
 	}
 
 	private String extractBetween(String text, String start, String end) {
@@ -578,14 +633,14 @@ public class FileService implements com.example.java.service.FileService {
 		Workbook workbook = new XSSFWorkbook();
 		Sheet sheet = workbook.createSheet("Data");
 
-		// define header value
+		//define header value
 		String[] headers = { "time", "id", "error", "subsystem","errorType", "code", "description" };
 
 		try (BufferedReader br = new BufferedReader(new InputStreamReader(csvFile.getInputStream()))) {
 			String line;
 			int rowNum = 0;
 
-			// create header
+			//create header
 			Row headerRow = sheet.createRow(rowNum++);
 			for (int i = 0; i < headers.length; i++) {
 				Cell cell = headerRow.createCell(i);
@@ -597,7 +652,7 @@ public class FileService implements com.example.java.service.FileService {
 				cell.setCellStyle(style);
 			}
 
-			// add row data
+			//add row data
 			while ((line = br.readLine()) != null) {
 				String[] columns = line.split(delimiter);
 				Row row = sheet.createRow(rowNum++);
@@ -608,20 +663,20 @@ public class FileService implements com.example.java.service.FileService {
 				}
 			}
 
-			// Responsive column
+			//Responsive column
 			for (int i = 0; i < headers.length; i++) {
 				sheet.autoSizeColumn(i);
 			}
 
-			// create table
+			//create table
 			AreaReference reference = new AreaReference(new CellReference(0, 0), new CellReference(sheet.getLastRowNum(), headers.length - 1), workbook.getSpreadsheetVersion());
 			XSSFTable table = ((XSSFSheet) sheet).createTable(reference);
 
-			// set table style
+			//set table style
 			table.setDisplayName("TableData");
 			table.getCTTable().addNewTableStyleInfo().setName("TableStyleMedium2");
 
-			// set table column
+			//set table column
 			for (int i = 0; i < headers.length; i++) {
 				XSSFTableColumn column = table.getColumns().get(i);
 				column.setName(headers[i]);
@@ -646,7 +701,7 @@ public class FileService implements com.example.java.service.FileService {
 	}
 
 	@Override
-	public Path wroteCsvFile(MultipartFile file) throws IOException {
+	public Path logErrors(MultipartFile file) throws IOException, ParseException {
 
 		List<String> results = getErrors(file);
 		Path filePath = Paths.get(System.getProperty("user.home"), "Desktop/csvErrors", file.getOriginalFilename().replace(".log", ".csv"));
@@ -665,5 +720,4 @@ public class FileService implements com.example.java.service.FileService {
 		
 		return excelFilePath;
 	}
-
 }
