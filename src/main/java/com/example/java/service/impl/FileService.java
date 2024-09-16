@@ -17,7 +17,9 @@ import java.text.SimpleDateFormat;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Deque;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
@@ -491,18 +493,9 @@ public class FileService implements com.example.java.service.FileService {
 		return excelFilePath;
 	}
 
-	public List<String> getErrors(MultipartFile file) throws IOException, ParseException {
+	public List<String> prepareExcelData(MultipartFile file) throws IOException, ParseException {
 	    List<String> results = new ArrayList<>();
 	    SimpleDateFormat dateFormat = new SimpleDateFormat("HH:mm:ss,SSS");
-	    //Buffer to store the previous lines
-	    Deque<String> buffer = new ArrayDeque<>(); 
-	    //Content to write inside the log file
-	    List<String> logContent = new ArrayList<>();
-	    //Time of the "get key =ERROR" line
-	    String referenceTime = null;
-	    //ID of the "get key =ERROR" line
-	    String referenceId = null;
-
 	    String time = null, Id = null, key = null, subsystem = null, errorType = null, code = null, description = null;
 	    boolean isErrorSection = false;
 
@@ -514,58 +507,20 @@ public class FileService implements com.example.java.service.FileService {
 	            String currentId = null;
 
 	            if (line.length() >= 12) {
-	                currentTime = line.substring(0, 12);
+	                currentTime = line.substring(0, 12);  //extract time
 	            }
 
 	            if (line.contains("[ainer : ")) {
-	                currentId = extractBetween(line, "[ainer : ", "]");
+	                currentId = extractBetween(line, "[ainer : ", "]");  //extract id
 	            } else if (line.contains("[tainer : ")) {
-	                currentId = extractBetween(line, "[tainer : ", "]");
+	                currentId = extractBetween(line, "[tainer : ", "]"); 
 	            }
 
-	            //Add the current line to the buffer
-	            buffer.add(line);
-
-	            //using delimit line to use it as reference
+	            //entry point for log section
 	            if (line.contains("get key =ERROR")) {
-	                referenceTime = currentTime;
-	                referenceId = currentId;
-
-	                //Transfer lines from the buffer to the log only if they meet the time and ID conditions
-	                if (referenceTime != null && referenceId != null) {
-	                    for (String bufferedLine : buffer) {
-	                        if (bufferedLine.length() >= 12) {
-	                            String bufferedTime = bufferedLine.substring(0, 12);
-	                            try {
-	                                long timeDifference = dateFormat.parse(referenceTime).getTime() - dateFormat.parse(bufferedTime).getTime();
-	                                if (timeDifference <= 100 && referenceId.equals(currentId)) {
-	                                    logContent.add(bufferedLine);
-	                                }
-	                            } catch (ParseException e) {
-	                              
-	                            }
-	                        }
-	                    }
-	                }
-	                //Clear the buffer after adding it to the log
-	                logContent.add("\n|*************************************************************************|"
-	                		+ "\n|*************************************************************************|\n|--ERROR--|"
-	                		+ "\n|*************************************************************************|\n|--SEPARATOR--|"
-	                		+ "\n|*************************************************************************|"
-	                		+ "\n|*************************************************************************|\n");
-	                buffer.clear(); 
-
-	                //Extract error data
-	                if (isErrorSection && key != null && subsystem != null && errorType != null && code != null && description != null) {
-	                    String errorStringResult = String.format("%s&%s&%s&%s&%s&%s&%s", time, Id, key, subsystem, errorType, code, description);
-	                    results.add(errorStringResult);
-	                }
-
 	                key = extractAfter(line, "get key =").trim();
-	                //Assign the reference time to the variable time
-	                time = referenceTime;
-	                //Assign the reference ID to the variable Id
-	                Id = referenceId;
+	                time = currentTime;
+	                Id = currentId;
 	                subsystem = null;
 	                errorType = null;
 	                code = null;
@@ -573,44 +528,140 @@ public class FileService implements com.example.java.service.FileService {
 	                isErrorSection = true;
 	            }
 
-	            //Update variables for the next iteration
+	            //get error details
 	            if (isErrorSection) {
 	                if (line.length() >= 12 && time == null) {
-	                    time = line.substring(0, 12);
+	                    time = line.substring(0, 12);  //time
 	                }
-	                if ((line.contains("[ainer : ")) && Id == null) {
-	                    Id = extractBetween(line, "[ainer : ", "]").trim();
-	                }else if (line.contains("[tainer : ") && Id == null) {
-		                Id = extractBetween(line, "[tainer : ", "]");
-		            }
+	                if (line.contains("[ainer : ") && Id == null) {
+	                    Id = extractBetween(line, "[ainer : ", "]").trim();  //id
+	                } else if (line.contains("[tainer : ") && Id == null) {
+	                    Id = extractBetween(line, "[tainer : ", "]");
+	                }
 	                if (line.contains("SUBSYSTEM:")) {
-	                    subsystem = extractAfter(line, "SUBSYSTEM:").trim();
+	                    subsystem = extractAfter(line, "SUBSYSTEM:").trim();  //subsystem
 	                }
 	                if (line.contains("ERRORTYPE:")) {
-	                    errorType = extractAfter(line, "ERRORTYPE:").trim();
+	                    errorType = extractAfter(line, "ERRORTYPE:").trim();  //error type
 	                }
 	                if (line.contains("- 	CODE:")) {
-	                    code = extractAfter(line, "CODE:").trim();
+	                    code = extractAfter(line, "CODE:").trim();  //code
 	                }
 	                if (line.contains("DESCRIPTION:")) {
-	                    description = extractAfter(line, "DESCRIPTION:").trim();
+	                    description = extractAfter(line, "DESCRIPTION:").trim();  //description
+	                }
+	            }
+
+	            //add all error found in a list
+	            if (isErrorSection && key != null && subsystem != null && errorType != null && code != null && description != null) {
+	                String errorStringResult = String.format("%s&%s&%s&%s&%s&%s&%s", time, Id, key, subsystem, errorType, code, description);
+	                
+	                // check if error already exists
+	                if (!results.contains(errorStringResult)) {
+	                    results.add(errorStringResult);  //add only if !present
 	                }
 	            }
 	        }
-
-	        //Add the last error if there is data
-	        if (isErrorSection && key != null && subsystem != null && errorType != null && code != null && description != null) {
-	            String errorStringResult = String.format("%s&%s&%s&%s&%s&%s&%s", time, Id, key, subsystem, errorType, code, description);
-	            results.add(errorStringResult);
-	        }
-
-	        //Create a new log file with error details
-	        createAndWriteLogFile("Desktop/ErrorsDetails", file.getOriginalFilename().replace(".log", "DETAILS").concat(".log"), logContent);
-
-	    } 
+	    }
 
 	    return results;
 	}
+
+
+
+
+	public void writeLogFile(MultipartFile file) throws IOException, ParseException {
+	    SimpleDateFormat dateFormat = new SimpleDateFormat("HH:mm:ss,SSS");
+	    Deque<String> buffer = new ArrayDeque<>();  // Buffer per tenere le righe precedenti all'errore
+	    List<String> logContent = new ArrayList<>();  // Contenuto del log
+	    String referenceTime = null;
+	    String referenceId = null;
+	    String lastSumSystemLine = null;  // Memorizza solo l'ultima occorrenza della riga con "sum.SUMSystem - Send Buffer:"
+
+	    try (BufferedReader reader = new BufferedReader(new InputStreamReader(file.getInputStream()))) {
+	        String line;
+
+	        while ((line = reader.readLine()) != null) {
+	            String currentTime = null;
+	            String currentId = null;
+
+	            if (line.length() >= 12) {
+	                currentTime = line.substring(0, 12);  // Estrai il timestamp
+	            }
+
+	            if (line.contains("[ainer : ")) {
+	                currentId = extractBetween(line, "[ainer : ", "]");  // Estrai l'ID
+	            } else if (line.contains("[tainer : ")) {
+	                currentId = extractBetween(line, "[tainer : ", "]");  // Gestisci l'ID alternativo
+	            }
+
+	            buffer.add(line);  // Aggiungi la linea al buffer
+
+	            // Se troviamo la stringa "sum.SUMSystem - Send Buffer:", memorizziamo l'ultima occorrenza
+	            if (line.contains("sum.SUMSystem - Send Buffer:")) {
+	                lastSumSystemLine = line;  // Memorizza sempre l'ultima riga trovata
+	            }
+
+	            // Se troviamo la stringa "get key =ERROR"
+	            if (line.contains("get key =ERROR")) {
+	                referenceTime = currentTime;
+	                referenceId = currentId;
+
+	                if (referenceTime != null && referenceId != null) {
+	                    List<String> tempBuffer = new ArrayList<>();  // Buffer temporaneo per memorizzare le righe nel range
+	                    boolean foundSumSystem = false;  // Flag per iniziare a salvare righe solo dopo aver trovato l'ultima occorrenza
+
+	                    // Cicla sulle righe del buffer e cerca l'ultima occorrenza di "sum.SUMSystem - Send Buffer:"
+	                    for (String bufferedLine : buffer) {
+	                        if (bufferedLine.length() >= 12) {
+	                            String bufferedTime = bufferedLine.substring(0, 12);  // Estrai il timestamp della linea nel buffer
+	                            try {
+	                                // Calcola la differenza temporale tra la riga attuale e l'errore
+	                                long timeDifference = dateFormat.parse(referenceTime).getTime() - dateFormat.parse(bufferedTime).getTime();
+
+	                                // Considera solo le righe entro 100 ms e con lo stesso ID
+	                                if (timeDifference <= 100 && referenceId.equals(currentId)) {
+	                                    // Se abbiamo trovato l'ultima "sum.SUMSystem - Send Buffer:", inizia a salvare le righe
+	                                    if (bufferedLine.equals(lastSumSystemLine)) {
+	                                        foundSumSystem = true;
+	                                    }
+
+	                                    // Aggiungi le righe solo se abbiamo trovato la riga "sum.SUMSystem - Send Buffer:"
+	                                    if (foundSumSystem) {
+	                                        tempBuffer.add(bufferedLine);
+	                                    }
+	                                }
+	                            } catch (ParseException e) {
+	                                // Gestione di eventuali eccezioni di parsing
+	                            }
+	                        }
+	                    }
+
+	                    // Aggiungi le righe al log solo se la riga "sum.SUMSystem - Send Buffer:" è stata trovata
+	                    if (foundSumSystem) {
+	                        logContent.addAll(tempBuffer);  // Aggiungi le righe bufferizzate al log
+	                    }
+	                }
+
+	                // Aggiungi il separatore nel log
+	                logContent.add("\n|*************************************************************************|"
+	                    + "\n|*************************************************************************|\n|--ERROR--|"
+	                    + "\n|*************************************************************************|\n|--SEPARATOR--|"
+	                    + "\n|*************************************************************************|"
+	                    + "\n|*************************************************************************|\n");
+
+	                buffer.clear();  // Pulisci il buffer dopo aver scritto nel log
+	                lastSumSystemLine = null;  // Resetta la riga di "sum.SUMSystem - Send Buffer:"
+	            }
+	        }
+
+	        // Scrivi il log su file
+	        createAndWriteLogFile("Desktop/ErrorsDetails", file.getOriginalFilename().replace(".log", "DETAILS").concat(".log"), logContent);
+	    }
+	}
+
+
+
 
 	private String extractBetween(String text, String start, String end) {
 
@@ -708,21 +759,26 @@ public class FileService implements com.example.java.service.FileService {
 	@Override
 	public Path logErrors(MultipartFile file) throws IOException, ParseException {
 
-		List<String> results = getErrors(file);
-		Path filePath = Paths.get(System.getProperty("user.home"), "Desktop/csvErrors", file.getOriginalFilename().replace(".log", ".csv"));
+	    //prepare data for exel
+	    List<String> results = prepareExcelData(file);
+	    Path filePath = Paths.get(System.getProperty("user.home"), "Desktop/csvErrors", file.getOriginalFilename().replace(".log", ".csv"));
 
-		createDirectoryIfNotExists(filePath.getParent());
+	    createDirectoryIfNotExists(filePath.getParent());
 
-		Files.write(filePath, results, StandardOpenOption.CREATE, StandardOpenOption.TRUNCATE_EXISTING);
+	    //resuts in csv
+	    Files.write(filePath, results, StandardOpenOption.CREATE, StandardOpenOption.TRUNCATE_EXISTING);
 
-		
-		MultipartFile csvMultipartFile = new CustomMultipartFile(filePath.toFile());
-		
-		Path excelFilePath = convertCsvToExcelErrors(csvMultipartFile, "&");
-		
-		System.out.println("File created and written at: " + filePath);
-		
-		
-		return excelFilePath;
+	    //convert file csv file into exel
+	    MultipartFile csvMultipartFile = new CustomMultipartFile(filePath.toFile());
+	    Path excelFilePath = convertCsvToExcelErrors(csvMultipartFile, "&");
+
+	    //new log file with errors details
+	    writeLogFile(file);
+
+	    System.out.println("File creato e scritto in: " + filePath);
+
+	    return excelFilePath;
 	}
+
+
 }
