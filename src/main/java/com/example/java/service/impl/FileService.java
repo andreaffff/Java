@@ -570,13 +570,13 @@ public class FileService implements com.example.java.service.FileService {
 
 
 
-	public void writeLogFile(MultipartFile file) throws IOException, ParseException {
+	public void writeLogFile(MultipartFile file) throws IOException {
 	    SimpleDateFormat dateFormat = new SimpleDateFormat("HH:mm:ss,SSS");
-	    Deque<String> buffer = new ArrayDeque<>();  // Buffer per tenere le righe precedenti all'errore
-	    List<String> logContent = new ArrayList<>();  // Contenuto del log
+	    Deque<String> buffer = new ArrayDeque<>();
+	    List<String> logContent = new ArrayList<>();
 	    String referenceTime = null;
 	    String referenceId = null;
-	    String lastSumSystemLine = null;  // Memorizza solo l'ultima occorrenza della riga con "sum.SUMSystem - Send Buffer:"
+	    String lastSumSystemLine = null;
 
 	    try (BufferedReader reader = new BufferedReader(new InputStreamReader(file.getInputStream()))) {
 	        String line;
@@ -586,76 +586,70 @@ public class FileService implements com.example.java.service.FileService {
 	            String currentId = null;
 
 	            if (line.length() >= 12) {
-	                currentTime = line.substring(0, 12);  // Estrai il timestamp
+	                currentTime = line.substring(0, 12);
 	            }
 
 	            if (line.contains("[ainer : ")) {
-	                currentId = extractBetween(line, "[ainer : ", "]");  // Estrai l'ID
+	                currentId = extractBetween(line, "[ainer : ", "]");
 	            } else if (line.contains("[tainer : ")) {
-	                currentId = extractBetween(line, "[tainer : ", "]");  // Gestisci l'ID alternativo
+	                currentId = extractBetween(line, "[tainer : ", "]");
 	            }
 
-	            buffer.add(line);  // Aggiungi la linea al buffer
+	            buffer.add(line);
 
-	            // Se troviamo la stringa "sum.SUMSystem - Send Buffer:", memorizziamo l'ultima occorrenza
+
 	            if (line.contains("sum.SUMSystem - Send Buffer:")) {
-	                lastSumSystemLine = line;  // Memorizza sempre l'ultima riga trovata
+	                lastSumSystemLine = line;
 	            }
-
-	            // Se troviamo la stringa "get key =ERROR"
+	            
 	            if (line.contains("get key =ERROR")) {
 	                referenceTime = currentTime;
 	                referenceId = currentId;
 
 	                if (referenceTime != null && referenceId != null) {
-	                    List<String> tempBuffer = new ArrayList<>();  // Buffer temporaneo per memorizzare le righe nel range
-	                    boolean foundSumSystem = false;  // Flag per iniziare a salvare righe solo dopo aver trovato l'ultima occorrenza
+	                    List<String> tempBuffer = new ArrayList<>();
+	                    boolean foundSumSystem = false;
 
-	                    // Cicla sulle righe del buffer e cerca l'ultima occorrenza di "sum.SUMSystem - Send Buffer:"
+	                   
 	                    for (String bufferedLine : buffer) {
 	                        if (bufferedLine.length() >= 12) {
-	                            String bufferedTime = bufferedLine.substring(0, 12);  // Estrai il timestamp della linea nel buffer
+	                            String bufferedTime = bufferedLine.substring(0, 12);
 	                            try {
-	                                // Calcola la differenza temporale tra la riga attuale e l'errore
+	                                
 	                                long timeDifference = dateFormat.parse(referenceTime).getTime() - dateFormat.parse(bufferedTime).getTime();
 
-	                                // Considera solo le righe entro 100 ms e con lo stesso ID
+	                                
 	                                if (timeDifference <= 100 && referenceId.equals(currentId)) {
-	                                    // Se abbiamo trovato l'ultima "sum.SUMSystem - Send Buffer:", inizia a salvare le righe
 	                                    if (bufferedLine.equals(lastSumSystemLine)) {
 	                                        foundSumSystem = true;
 	                                    }
 
-	                                    // Aggiungi le righe solo se abbiamo trovato la riga "sum.SUMSystem - Send Buffer:"
 	                                    if (foundSumSystem) {
 	                                        tempBuffer.add(bufferedLine);
 	                                    }
 	                                }
 	                            } catch (ParseException e) {
-	                                // Gestione di eventuali eccezioni di parsing
+	                                
 	                            }
 	                        }
 	                    }
 
-	                    // Aggiungi le righe al log solo se la riga "sum.SUMSystem - Send Buffer:" è stata trovata
 	                    if (foundSumSystem) {
-	                        logContent.addAll(tempBuffer);  // Aggiungi le righe bufferizzate al log
+	                        logContent.addAll(tempBuffer);
 	                    }
 	                }
 
-	                // Aggiungi il separatore nel log
 	                logContent.add("\n|*************************************************************************|"
 	                    + "\n|*************************************************************************|\n|--ERROR--|"
 	                    + "\n|*************************************************************************|\n|--SEPARATOR--|"
 	                    + "\n|*************************************************************************|"
 	                    + "\n|*************************************************************************|\n");
 
-	                buffer.clear();  // Pulisci il buffer dopo aver scritto nel log
-	                lastSumSystemLine = null;  // Resetta la riga di "sum.SUMSystem - Send Buffer:"
+	                buffer.clear(); 
+	                lastSumSystemLine = null;
 	            }
 	        }
 
-	        // Scrivi il log su file
 	        createAndWriteLogFile("Desktop/ErrorsDetails", file.getOriginalFilename().replace(".log", "DETAILS").concat(".log"), logContent);
 	    }
 	}
@@ -759,13 +753,13 @@ public class FileService implements com.example.java.service.FileService {
 	@Override
 	public Path logErrors(MultipartFile file) throws IOException, ParseException {
 
-	    //prepare data for exel
+	    //prepare exel data
 	    List<String> results = prepareExcelData(file);
 	    Path filePath = Paths.get(System.getProperty("user.home"), "Desktop/csvErrors", file.getOriginalFilename().replace(".log", ".csv"));
 
 	    createDirectoryIfNotExists(filePath.getParent());
 
-	    //resuts in csv
+	    //results in csv
 	    Files.write(filePath, results, StandardOpenOption.CREATE, StandardOpenOption.TRUNCATE_EXISTING);
 
 	    //convert file csv file into exel
