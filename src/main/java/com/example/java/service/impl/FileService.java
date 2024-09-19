@@ -17,9 +17,7 @@ import java.text.SimpleDateFormat;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Deque;
-import java.util.HashSet;
 import java.util.List;
-import java.util.Set;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
@@ -577,8 +575,15 @@ public class FileService implements com.example.java.service.FileService {
 	    String referenceTime = null;
 	    String referenceId = null;
 	    String lastSumSystemLine = null;
+	    String subsystem = null;
+	    String referenceTimePre = null;
+	    String referenceIdPre = null;
+        boolean foundSumSystemPre = false;
+        boolean isPDSErrorPre = false;
+        List<String> tempBufferPre = new ArrayList<>();
 
-	    try (BufferedReader reader = new BufferedReader(new InputStreamReader(file.getInputStream()))) {
+	    try {
+	    	BufferedReader reader = new BufferedReader(new InputStreamReader(file.getInputStream()));
 	        String line;
 
 	        while ((line = reader.readLine()) != null) {
@@ -597,28 +602,26 @@ public class FileService implements com.example.java.service.FileService {
 
 	            buffer.add(line);
 
-
 	            if (line.contains("sum.SUMSystem - Send Buffer:")) {
 	                lastSumSystemLine = line;
 	            }
+
 	            
 	            if (line.contains("get key =ERROR")) {
 	                referenceTime = currentTime;
 	                referenceId = currentId;
+                    List<String> tempBuffer = new ArrayList<>();
+                    boolean foundSumSystem = false;
+                    boolean isPDSError = false;
 
 	                if (referenceTime != null && referenceId != null) {
-	                    List<String> tempBuffer = new ArrayList<>();
-	                    boolean foundSumSystem = false;
 
-	                   
 	                    for (String bufferedLine : buffer) {
 	                        if (bufferedLine.length() >= 12) {
 	                            String bufferedTime = bufferedLine.substring(0, 12);
 	                            try {
-	                                
 	                                long timeDifference = dateFormat.parse(referenceTime).getTime() - dateFormat.parse(bufferedTime).getTime();
 
-	                                
 	                                if (timeDifference <= 100 && referenceId.equals(currentId)) {
 	                                    if (bufferedLine.equals(lastSumSystemLine)) {
 	                                        foundSumSystem = true;
@@ -629,32 +632,80 @@ public class FileService implements com.example.java.service.FileService {
 	                                    }
 	                                }
 	                            } catch (ParseException e) {
-	                                
+	                               
 	                            }
 	                        }
+
+	                        
+	                        if (bufferedLine.contains("SUBSYSTEM:")) {
+	                            subsystem = extractAfter(bufferedLine, "SUBSYSTEM:").trim();
+	                            
+	                            
+	                            if ("PDS".equals(subsystem)) {
+	                            	isPDSError = true;
+	                            }
+	                        }
+	                        foundSumSystemPre = foundSumSystem;
+	                        isPDSErrorPre = isPDSError;
+
 	                    }
 
-	                    if (foundSumSystem) {
-	                        logContent.addAll(tempBuffer);
+	                    if (referenceTimePre != null && referenceIdPre != null) {
+		                    if (isPDSErrorPre) {
+		                        logContent.add("\n|*************************************************************************|"
+		                                + "\n|*************************************************************************|\n|--PDS ERROR--|"
+		                                + "\nERROR TIME: " + referenceTimePre
+		                                + "\nID: " + referenceIdPre
+		                                + "\nDESCRIPTION: PDS ERROR!"
+		                                + "\n|*************************************************************************|\n|--SEPARATOR--|"
+		                                + "\n|*************************************************************************|"
+		                                + "\n|*************************************************************************|\n");
+		                    } else if (foundSumSystemPre) {
+		                        
+		                        logContent.addAll(tempBufferPre);
+		                        logContent.add("\n|*************************************************************************|"
+		                                + "\n|*************************************************************************|\n|--ERROR--|"
+		                                + "\n|*************************************************************************|\n|--SEPARATOR--|"
+		                                + "\n|*************************************************************************|"
+		                                + "\n|*************************************************************************|\n");
+		                    }
 	                    }
+	                    buffer.clear();
+	                    lastSumSystemLine = null;
 	                }
+                    referenceTimePre = referenceTime;
+                    referenceIdPre = referenceId;
+                    tempBufferPre = tempBuffer;
 
-	                logContent.add("\n|*************************************************************************|"
-	                    + "\n|*************************************************************************|\n|--ERROR--|"
-	                    + "\n|*************************************************************************|\n|--SEPARATOR--|"
-	                    + "\n|*************************************************************************|"
-	                    + "\n|*************************************************************************|\n");
-
-	                buffer.clear(); 
-	                lastSumSystemLine = null;
 	            }
 	        }
+	        
+	        if (referenceTimePre != null && referenceIdPre != null) {
+                if (isPDSErrorPre) {
+                    logContent.add("\n|*************************************************************************|"
+                            + "\n|*************************************************************************|\n|--PDS ERROR--|"
+                            + "\nERROR TIME: " + referenceTimePre
+                            + "\nID: " + referenceIdPre
+                            + "\nDESCRIPTION: PDS ERROR!"
+                            + "\n|*************************************************************************|\n|--SEPARATOR--|"
+                            + "\n|*************************************************************************|"
+                            + "\n|*************************************************************************|\n");
+                } else if (foundSumSystemPre) {
+                    
+                    logContent.addAll(tempBufferPre);
+                    logContent.add("\n|*************************************************************************|"
+                            + "\n|*************************************************************************|\n|--ERROR--|"
+                            + "\n|*************************************************************************|\n|--SEPARATOR--|"
+                            + "\n|*************************************************************************|"
+                            + "\n|*************************************************************************|\n");
+                }
+            }
 
 	        createAndWriteLogFile("Desktop/ErrorsDetails", file.getOriginalFilename().replace(".log", "DETAILS").concat(".log"), logContent);
-	    }
+	    }catch (Exception e) {
+	    	logContent.add("error: " + e); 
+		}
 	}
-
-
 
 
 	private String extractBetween(String text, String start, String end) {
